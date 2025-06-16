@@ -3,12 +3,12 @@
   "productName": "Dropzone Navigator",
   "version": "1.0.0",
   "description": "A cross-platform desktop application for browsing and uploading files to Amazon S3 through access points with a tree-like interface",
-  "author": "Your Name <your.email@example.com>",
+  "author": "Milind <milind.g@amagi.com>",
   "license": "MIT",
-  "homepage": "https://github.com/your-username/dropzone-navigator",
+  "homepage": "https://github.com/milindghiya/dropzone-navigator",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/dropzone-navigator.git"
+    "url": "https://github.com/milindghiya/dropzone-navigator.git"
   },
   "keywords": [
     "electron",
@@ -62,7 +62,7 @@
           ]
         }
       ],
-      "icon": "favicon.png"
+      "icon": "icon.ico"
     },
     "mac": {
       "target": [
@@ -92,8 +92,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "favicon.png",
-      "uninstallerIcon": "favicon.png"
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico"
     }
   }
 }
