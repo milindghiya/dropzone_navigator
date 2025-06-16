@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropzone Navigator</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2563eb;
+            color: white;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+        }
+        
+        .credentials {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+        }
+        
+        .credentials input {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .connect-btn {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .connect-btn:hover {
+            background: #15803d;
+        }
+        
+        .connect-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .clear-saved {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .clear-saved:hover {
+            background: #dc2626;
+        }
+        
+        .upload-btn {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            display: none;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .upload-btn:hover {
+            background: #d97706;
+        }
+        
+        .upload-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .navigation {
+            padding: 20px;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .breadcrumb-item {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        
+        .breadcrumb-item:hover {
+            background: #e2e8f0;
+        }
+        
+        .breadcrumb-separator {
+            color: #64748b;
+        }
+        
+        .tree-container {
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            min-height: 400px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .tree-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background-color 0.2s;
+        }
+        
+        .tree-item:hover {
+            background: #f8fafc;
+        }
+        
+        .tree-item.folder {
+            font-weight: 500;
+        }
+        
+        .tree-item.file {
+            color: #64748b;
+        }
+        
+        .tree-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        
+        .tree-text {
+            flex: 1;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 10px;
+        }
+        
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        .status {
+            padding: 10px 20px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .saved-credentials {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .upload-modal {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .upload-modal h3 {
+            margin: 0 0 20px 0;
+            color: #1f2937;
+        }
+
+        .upload-modal .progress-bar {
+            height: 8px;
+            background: #10b981;
+            border-radius: 4px;
+        }
+
+        .upload-modal .progress-container {
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 Dropzone Navigator</h1>
+            <div id="savedCredsNotice" class="saved-credentials" style="display: none;">
+                Saved credentials found
+            </div>
+            <div class="credentials">
+                <input id="accessKey" type="text" placeholder="Access Key ID" />
+                <input id="secretKey" type="password" placeholder="Secret Access Key" />
+                <input id="bucketArn" type="text" placeholder="S3 Access Point ARN" />
+            </div>
+            <div class="button-group">
+                <button id="connectBtn" class="connect-btn">Connect to S3</button>
+                <button id="clearSaved" class="clear-saved" style="display: none;">Clear Saved</button>
+                <button id="uploadBtn" class="upload-btn">
+                    📁 Upload Files
+                </button>
+            </div>
+        </div>
+        
+        <div class="navigation">
+            <div id="breadcrumb" class="breadcrumb" style="display: none;">
+                <span class="breadcrumb-item" data-path="">🏠 Root</span>
+            </div>
+            
+            <div id="treeContainer" class="tree-container">
+                <div class="empty">
+                    Enter your S3 credentials above and click "Connect to S3" to start browsing
+                </div>
+            </div>
+        </div>
+        
+        <div id="status" class="status">
+            Ready to connect
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" class="file-input" multiple>
+
+    <!-- Upload progress overlay -->
+    <div id="uploadOverlay" class="upload-overlay">
+        <div class="upload-modal">
+            <h3 id="uploadModalTitle">Uploading Files...</h3>
+            <div class="progress-container">
+                <div class="progress-bar" id="modalProgressBar"></div>
+            </div>
+            <div id="modalProgressText">Preparing upload...</div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
+
