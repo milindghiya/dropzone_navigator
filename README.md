@@ -61,7 +61,7 @@ Before building or installing Dropzone Navigator, ensure you have:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/dropzone-navigator.git
+git clone https://github.com/milindghiya/dropzone-navigator.git
 cd dropzone-navigator
 ```
 
@@ -115,7 +115,7 @@ npm run clean          # Clean build directory
 ### Windows
 
 #### Option 1: Download Pre-built Executable
-1. Download `Dropzone-Navigator-Setup-x.x.x.exe` from the [Releases](https://github.com/your-username/dropzone-navigator/releases) page
+1. Download `Dropzone-Navigator-Setup-x.x.x.exe` from the [Releases](https://github.com/milindghiya/dropzone-navigator/releases) page
 2. Run the installer and follow the installation wizard
 3. Launch "Dropzone Navigator" from the Start Menu or Desktop
 
@@ -135,7 +135,7 @@ npm run build:win
 ### macOS
 
 #### Option 1: Download Pre-built App
-1. Download `Dropzone-Navigator-x.x.x.dmg` from the [Releases](https://github.com/your-username/dropzone-navigator/releases) page
+1. Download `Dropzone-Navigator-x.x.x.dmg` from the [Releases](https://github.com/milindghiya/dropzone-navigator/releases) page
 2. Open the DMG file and drag "Dropzone Navigator" to Applications
 3. Launch from Applications folder (you may need to allow the app in Security & Privacy settings)
 
@@ -157,7 +157,7 @@ npm run build:mac
 ### Linux
 
 #### Option 1: Download AppImage
-1. Download `Dropzone-Navigator-x.x.x.AppImage` from the [Releases](https://github.com/your-username/dropzone-navigator/releases) page
+1. Download `Dropzone-Navigator-x.x.x.AppImage` from the [Releases](https://github.com/milindghiya/dropzone-navigator/releases) page
 2. Make it executable: `chmod +x Dropzone-Navigator-x.x.x.AppImage`
 3. Run: `./Dropzone-Navigator-x.x.x.AppImage`
 
