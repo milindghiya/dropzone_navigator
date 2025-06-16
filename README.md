@@ -279,9 +279,10 @@ The application will automatically include these dependencies when building:
 
 ## 🔄 Version History
 
-- **v1.0.0**: Initial release with basic S3 browsing and upload functionality
-- **v1.1.0**: Added credential persistence and improved UI
-- **v1.2.0**: Enhanced upload progress tracking and error handling
+**v1.0.0**: 
+- Initial release with basic S3 browsing and upload functionality
+- Added credential persistence and improved UI
+- Enhanced upload progress tracking and error handling
 
 ---
 
