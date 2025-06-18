@@ -44,6 +44,7 @@ class S3Navigator {
                 document.getElementById('accessKey').value = creds.accessKey || '';
                 document.getElementById('secretKey').value = creds.secretKey || '';
                 document.getElementById('bucketArn').value = creds.bucketArn || '';
+                document.getElementById('dropzoneFolder').value = creds.dropzoneFolder || '';
                 
                 const notice = document.getElementById('savedCredsNotice');
                 notice.style.display = 'block';
@@ -64,7 +65,8 @@ class S3Navigator {
             const creds = {
                 accessKey: this.credentials.accessKey,
                 secretKey: this.credentials.secretKey,
-                bucketArn: this.credentials.bucketArn
+                bucketArn: this.credentials.bucketArn,
+                dropzoneFolder: this.credentials.dropzoneFolder
             };
             localStorage.setItem('s3NavCredentials', JSON.stringify(creds));
             
@@ -86,6 +88,7 @@ class S3Navigator {
         document.getElementById('accessKey').value = '';
         document.getElementById('secretKey').value = '';
         document.getElementById('bucketArn').value = '';
+        document.getElementById('dropzoneFolder').value = '';
         
         // Hide UI elements
         const notice = document.getElementById('savedCredsNotice');
@@ -127,21 +130,22 @@ class S3Navigator {
         const accessKey = document.getElementById('accessKey').value.trim();
         const secretKey = document.getElementById('secretKey').value.trim();
         const bucketArn = document.getElementById('bucketArn').value.trim();
+        const dropzoneFolder = document.getElementById('dropzoneFolder').value.trim();
         const region = 'us-east-1'; // Default region
 
-        if (!accessKey || !secretKey || !bucketArn) {
+        if (!accessKey || !secretKey || !bucketArn || !dropzoneFolder) {
             this.showError('Please fill in all credential fields');
             return;
         }
 
-        this.credentials = { accessKey, secretKey, bucketArn, region };
+        this.credentials = { accessKey, secretKey, bucketArn, region, dropzoneFolder };
         
-        const { amgId, folder } = parseAccessPointArn(bucketArn);
+        const { amgId, suffix } = parseAccessPointArn(bucketArn);
 
         // Set the root prefix - this is the minimum prefix user has access to
         this.rootPrefix = 'inbox/' + amgId + '/';
-        if (folder) {
-            this.rootPrefix = 'inbox/' + amgId + '/' + folder + '/';
+        if (dropzoneFolder != '/') {
+            this.rootPrefix = 'inbox/' + amgId + '/' + dropzoneFolder + '/';
         }
 
         const connectBtn = document.getElementById('connectBtn');
@@ -177,6 +181,7 @@ class S3Navigator {
         this.currentPath = prefix;
         
         try {
+            console.log(prefix)
             const result = await window.awsApi.listObjects({
                 ...this.credentials,
                 prefix: prefix
@@ -411,12 +416,12 @@ function parseAccessPointArn(arn) {
     // 1: everything up to "accesspoint/" is discarded
     // 2: ([^-]+)      — "capture as many non-'-' chars as possible"  → the access-point ID
     // 3: (?:-(.+))?   — optionally "-" plus "capture the rest"        → the folder name
-    const re = /accesspoint\/([^-]+)(?:-(.+))?$/;
-    const m = arn.match(re) || [];
-  
+    [accPref,accName] = arn.split("/", 2)
+    m = accName.split("-", 2)
+    console.log(m[0])
     return {
-        amgId: m[1] || null,
-        folder: m[2] || null
+        amgId:m[0],
+        suffix: m[1]
     };
 }
 
