@@ -61,7 +61,7 @@ Before building or installing Dropzone Navigator, ensure you have:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/dropzone-navigator.git
+git clone https://github.com/milindghiya/dropzone_navigator.git
 cd dropzone-navigator
 ```
 
@@ -90,7 +90,7 @@ npm run build:linux   # Linux
 
 ### Project Structure
 ```
-dropzone-navigator/
+dropzone_navigator/
 ├── main.js           # Electron main process
 ├── renderer.js       # Frontend application logic
 ├── preload.js        # Secure IPC bridge
@@ -115,7 +115,7 @@ npm run clean          # Clean build directory
 ### Windows
 
 #### Option 1: Download Pre-built Executable
-1. Download `Dropzone-Navigator-Setup-x.x.x.exe` from the [Releases](https://github.com/your-username/dropzone-navigator/releases) page
+1. Download `Dropzone-Navigator-Setup-x.x.x.exe` from the [Releases](https://github.com/milindghiya/dropzone_navigator/releases) page
 2. Run the installer and follow the installation wizard
 3. Launch "Dropzone Navigator" from the Start Menu or Desktop
 
@@ -123,8 +123,8 @@ npm run clean          # Clean build directory
 ```bash
 # Install Node.js from https://nodejs.org/
 # Open Command Prompt or PowerShell
-git clone https://github.com/your-username/dropzone-navigator.git
-cd dropzone-navigator
+git clone https://github.com/your-username/dropzone_navigator.git
+cd dropzone_navigator
 npm install
 npm run build:win
 
@@ -135,7 +135,7 @@ npm run build:win
 ### macOS
 
 #### Option 1: Download Pre-built App
-1. Download `Dropzone-Navigator-x.x.x.dmg` from the [Releases](https://github.com/your-username/dropzone-navigator/releases) page
+1. Download `Dropzone-Navigator-x.x.x.dmg` from the [Releases](https://github.com/milindghiya/dropzone_navigator/releases) page
 2. Open the DMG file and drag "Dropzone Navigator" to Applications
 3. Launch from Applications folder (you may need to allow the app in Security & Privacy settings)
 
@@ -157,7 +157,7 @@ npm run build:mac
 ### Linux
 
 #### Option 1: Download AppImage
-1. Download `Dropzone-Navigator-x.x.x.AppImage` from the [Releases](https://github.com/your-username/dropzone-navigator/releases) page
+1. Download `Dropzone-Navigator-x.x.x.AppImage` from the [Releases](https://github.com/milindghiya/dropzone_navigator/releases) page
 2. Make it executable: `chmod +x Dropzone-Navigator-x.x.x.AppImage`
 3. Run: `./Dropzone-Navigator-x.x.x.AppImage`
 
@@ -168,7 +168,7 @@ curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # Clone and build
-git clone https://github.com/your-username/dropzone-navigator.git
+git clone https://github.com/your-username/dropzone_navigator.git
 cd dropzone-navigator
 npm install
 npm run build:linux
@@ -279,9 +279,10 @@ The application will automatically include these dependencies when building:
 
 ## 🔄 Version History
 
-- **v1.0.0**: Initial release with basic S3 browsing and upload functionality
-- **v1.1.0**: Added credential persistence and improved UI
-- **v1.2.0**: Enhanced upload progress tracking and error handling
+**v1.0.0**: 
+- Initial release with basic S3 browsing and upload functionality
+- Added credential persistence and improved UI
+- Enhanced upload progress tracking and error handling
 
 ---
 
