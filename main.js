@@ -45,7 +45,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { S3Client, ListObjectsV2Command, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { Upload } = require('@aws-sdk/lib-storage');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -128,104 +129,124 @@ ipcMain.handle('list-objects', async (_, { bucketArn, accessKey, secretKey, pref
 
 // File upload handler
 ipcMain.handle('upload-files', async (_, { bucketArn, accessKey, secretKey, prefix, files }) => {
-  try {
-    // Validate required parameters
-    if (!bucketArn || !accessKey || !secretKey || !files || files.length === 0) {
-      throw new Error('Missing required parameters for upload');
-    }
-
-    // Default to us-east-1 region
-    const region = 'us-east-1';
-
-    const s3 = new S3Client({
-      region: region,
-      credentials: {
-        accessKeyId: accessKey,
-        secretAccessKey: secretKey,
-      },
-    });
-
-    const uploadResults = [];
-    const totalFiles = files.length;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      try {
-        // Read file content
-        const fileContent = fs.readFileSync(file.path);
-        
-        // Construct S3 key (prefix + filename)
-        const s3Key = prefix + file.name;
-        
-        // Send progress update
-        const progressEvent = {
-          type: 'progress',
-          currentFile: i + 1,
-          totalFiles: totalFiles,
-          fileName: file.name,
-          fileProgress: 0
-        };
-        
-        // Get main window to send progress updates
-        const mainWindow = BrowserWindow.getAllWindows()[0];
-        if (mainWindow) {
-          mainWindow.webContents.send('upload-progress', progressEvent);
+    try {
+        // Validate required parameters
+        if (!bucketArn || !accessKey || !secretKey || !files || files.length === 0) {
+            throw new Error('Missing required parameters for upload');
         }
 
-        // Create upload command
-        const command = new PutObjectCommand({
-          Bucket: bucketArn,
-          Key: s3Key,
-          Body: fileContent,
-          ContentType: file.type || 'application/octet-stream'
+        // Default to us-east-1 region
+        const region = 'us-east-1';
+
+        const s3 = new S3Client({
+            region: region,
+            credentials: {
+                accessKeyId: accessKey,
+                secretAccessKey: secretKey,
+            },
         });
 
-        // Upload file
-        const result = await s3.send(command);
-        
-        // Send completion for this file
-        const completeEvent = {
-          type: 'progress',
-          currentFile: i + 1,
-          totalFiles: totalFiles,
-          fileName: file.name,
-          fileProgress: 100
-        };
-        
-        if (mainWindow) {
-          mainWindow.webContents.send('upload-progress', completeEvent);
+        const uploadResults = [];
+        const totalFiles = files.length;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+
+            try {
+                // Construct S3 key (prefix + filename)
+                const s3Key = prefix + file.name;
+
+                // Get main window to send progress updates
+                const mainWindow = BrowserWindow.getAllWindows()[0];
+
+                // Emit an initial 0% progress event
+                if (mainWindow) {
+                    mainWindow.webContents.send('upload-progress', {
+                        type: 'progress',
+                        currentFile: i + 1,
+                        totalFiles: totalFiles,
+                        fileName: file.name,
+                        fileProgress: 0
+                    });
+                }
+
+                // Use a read stream for efficient uploads and progress
+                const fileStream = fs.createReadStream(file.path);
+                const totalBytes = typeof file.size === 'number' && file.size > 0
+                    ? file.size
+                    : fs.statSync(file.path).size;
+
+                const uploader = new Upload({
+                    client: s3,
+                    params: {
+                        Bucket: bucketArn,
+                        Key: s3Key,
+                        Body: fileStream,
+                        ContentType: file.type || 'application/octet-stream'
+                    },
+                    queueSize: 4,
+                    partSize: 5 * 1024 * 1024,
+                    leavePartsOnError: false
+                });
+
+                let lastPercent = -1;
+                uploader.on('httpUploadProgress', (progress) => {
+                    const loaded = progress?.loaded || 0;
+                    const percent = totalBytes ? Math.floor((loaded / totalBytes) * 100) : 0;
+                    if (percent !== lastPercent && mainWindow) {
+                        lastPercent = percent;
+                        mainWindow.webContents.send('upload-progress', {
+                            type: 'progress',
+                            currentFile: i + 1,
+                            totalFiles: totalFiles,
+                            fileName: file.name,
+                            fileProgress: percent
+                        });
+                    }
+                });
+
+                const result = await uploader.done();
+
+                // Ensure a 100% event is emitted at completion
+                if (mainWindow && lastPercent !== 100) {
+                    mainWindow.webContents.send('upload-progress', {
+                        type: 'progress',
+                        currentFile: i + 1,
+                        totalFiles: totalFiles,
+                        fileName: file.name,
+                        fileProgress: 100
+                    });
+                }
+
+                uploadResults.push({
+                    fileName: file.name,
+                    success: true,
+                    key: s3Key,
+                    etag: result?.ETag || result?.ETag?.[0] || undefined
+                });
+
+            } catch (fileError) {
+                console.error(`Error uploading ${file.name}:`, fileError);
+                uploadResults.push({
+                    fileName: file.name,
+                    success: false,
+                    error: fileError.message
+                });
+            }
         }
 
-        uploadResults.push({
-          fileName: file.name,
-          success: true,
-          key: s3Key,
-          etag: result.ETag
-        });
+        return {
+            success: true,
+            results: uploadResults,
+            totalFiles: totalFiles,
+            successCount: uploadResults.filter(r => r.success).length,
+            errorCount: uploadResults.filter(r => !r.success).length
+        };
 
-      } catch (fileError) {
-        console.error(`Error uploading ${file.name}:`, fileError);
-        uploadResults.push({
-          fileName: file.name,
-          success: false,
-          error: fileError.message
-        });
-      }
+    } catch (err) {
+        console.error('Upload Error:', err);
+        throw new Error(`Upload Error: ${err.message}`);
     }
-
-    return {
-      success: true,
-      results: uploadResults,
-      totalFiles: totalFiles,
-      successCount: uploadResults.filter(r => r.success).length,
-      errorCount: uploadResults.filter(r => !r.success).length
-    };
-
-  } catch (err) {
-    console.error('Upload Error:', err);
-    throw new Error(`Upload Error: ${err.message}`);
-  }
 });
 
 
