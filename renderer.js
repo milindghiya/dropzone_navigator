@@ -391,7 +391,7 @@ class S3Navigator {
             if (data.fileProgress === 100) {
                 progressText.textContent = `Completed: ${data.fileName} (${data.currentFile}/${data.totalFiles})`;
             } else {
-                progressText.textContent = `Uploading: ${data.fileName} (${data.currentFile}/${data.totalFiles})`;
+                progressText.textContent = `Uploading: ${data.fileName} (${data.currentFile}/${data.totalFiles}) - ${data.fileProgress}%`;
             }
         }
     }
