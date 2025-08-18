@@ -24,14 +24,15 @@
     "dev": "NODE_ENV=development electron .",
     "build": "electron-builder --publish=never",
     "build:win": "electron-builder --win --publish=never",
-    "build:mac": "electron-builder --mac --publish=never", 
+    "build:mac": "electron-builder --mac --publish=never",
     "build:linux": "electron-builder --linux --publish=never",
     "build:all": "electron-builder --win --mac --linux --publish=never",
     "clean": "rimraf dist/",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.40.0"
+    "@aws-sdk/client-s3": "^3.40.0",
+    "@aws-sdk/lib-storage": "^3.864.0"
   },
   "devDependencies": {
     "electron": "^30.0.0",
