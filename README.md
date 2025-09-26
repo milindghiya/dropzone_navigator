@@ -2,6 +2,13 @@
 
 **Dropzone Navigator** is a cross-platform desktop application built with Electron that provides a user-friendly, tree-like file system interface for browsing and uploading files to Amazon S3 buckets through access points. It's designed for users who need secure, restricted access to specific S3 locations with an intuitive file manager experience.
 
+For **Dropzone Root User** 
+<img width="1283" height="249" alt="image" src="https://github.com/user-attachments/assets/032c26fd-a7c9-41cc-af6c-4e42c44b8f00" />
+
+For **Content Partners** or **NonRootUsers**
+In the last field, add the dropzone foldername to which content partner's credentials has access to
+
+
 ## ✨ Features
 
 ### 🔐 **Secure S3 Access**
@@ -287,3 +294,4 @@ The application will automatically include these dependencies when building:
 ---
 
 Made with ❤️ using Electron and AWS SDK 
+
