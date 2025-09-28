@@ -5,6 +5,16 @@ class S3Navigator {
         this.rootPrefix = ''; // The minimum prefix user has access to
         this.credentials = {};
         this.isConnected = false;
+        this.encryptionConfig = {
+            algorithm: 'AES-GCM',
+            keyLength: 256,
+            ivLength: 12,
+            saltLength: 16,
+            iterations: 150000,
+            hash: 'SHA-256',
+            // WARNING: Static key for encryption. Replace with secure key management in production.
+            staticPassphrase: 'dropzone-navigator-static-key'
+        };
         this.setupEventListeners();
         this.loadSavedCredentials();
         this.updateStatus('Ready to connect');
@@ -40,24 +50,102 @@ class S3Navigator {
         try {
             const saved = localStorage.getItem('s3NavCredentials');
             if (saved) {
-                const creds = JSON.parse(saved);
-                document.getElementById('accessKey').value = creds.accessKey || '';
-                document.getElementById('secretKey').value = creds.secretKey || '';
-                document.getElementById('bucketArn').value = creds.bucketArn || '';
-                document.getElementById('dropzoneFolder').value = creds.dropzoneFolder || '';
-                
-                const notice = document.getElementById('savedCredsNotice');
-                notice.style.display = 'block';
-                
-                const clearBtn = document.getElementById('clearSaved');
-                clearBtn.style.display = 'block';
-                
-                this.updateStatus('Saved credentials loaded. Click Connect to use them.');
+                const payload = JSON.parse(saved);
+                this.decryptStoredCredentials(payload)
+                    .then(creds => {
+                        document.getElementById('accessKey').value = creds.accessKey || '';
+                        document.getElementById('secretKey').value = creds.secretKey || '';
+                        document.getElementById('bucketArn').value = creds.bucketArn || '';
+                        document.getElementById('dropzoneFolder').value = creds.dropzoneFolder || '';
+
+                        const notice = document.getElementById('savedCredsNotice');
+                        notice.style.display = 'block';
+
+                        const clearBtn = document.getElementById('clearSaved');
+                        clearBtn.style.display = 'block';
+
+                        this.updateStatus('Saved credentials unlocked. Click Connect to use them.');
+                    })
+                    .catch(error => {
+                        console.error('Error decrypting saved credentials:', error);
+                        this.showError('Failed to unlock saved credentials. Please re-enter them.');
+                        this.clearSavedCredentials();
+                    });
             }
         } catch (error) {
             console.error('Error loading saved credentials:', error);
             this.clearSavedCredentials();
         }
+    }
+
+    async encryptAndStoreCredentials(creds) {
+        const salt = window.crypto.getRandomValues(new Uint8Array(this.encryptionConfig.saltLength));
+        const iv = window.crypto.getRandomValues(new Uint8Array(this.encryptionConfig.ivLength));
+        const key = await this.deriveStaticKey(salt);
+        const encoded = new TextEncoder().encode(JSON.stringify(creds));
+        const ciphertext = await window.crypto.subtle.encrypt({ name: this.encryptionConfig.algorithm, iv }, key, encoded);
+
+        return {
+            version: 1,
+            cipherText: this.arrayBufferToBase64(ciphertext),
+            salt: this.arrayBufferToBase64(salt),
+            iv: this.arrayBufferToBase64(iv)
+        };
+    }
+
+    async decryptStoredCredentials(payload) {
+        const salt = this.base64ToUint8Array(payload.salt);
+        const iv = this.base64ToUint8Array(payload.iv);
+        const cipherBytes = this.base64ToUint8Array(payload.cipherText);
+        const key = await this.deriveStaticKey(salt);
+        const decrypted = await window.crypto.subtle.decrypt({ name: this.encryptionConfig.algorithm, iv }, key, cipherBytes);
+        const decoded = new TextDecoder().decode(decrypted);
+        return JSON.parse(decoded);
+    }
+
+    async deriveStaticKey(salt) {
+        const encoder = new TextEncoder();
+        const passphraseKey = await window.crypto.subtle.importKey(
+            'raw',
+            encoder.encode(this.encryptionConfig.staticPassphrase),
+            'PBKDF2',
+            false,
+            ['deriveKey']
+        );
+
+        return window.crypto.subtle.deriveKey(
+            {
+                name: 'PBKDF2',
+                salt,
+                iterations: this.encryptionConfig.iterations,
+                hash: this.encryptionConfig.hash
+            },
+            passphraseKey,
+            {
+                name: this.encryptionConfig.algorithm,
+                length: this.encryptionConfig.keyLength
+            },
+            false,
+            ['encrypt', 'decrypt']
+        );
+    }
+
+    arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    base64ToUint8Array(base64) {
+        const binary = window.atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
     }
 
     saveCredentials() {
@@ -68,7 +156,14 @@ class S3Navigator {
                 bucketArn: this.credentials.bucketArn,
                 dropzoneFolder: this.credentials.dropzoneFolder
             };
-            localStorage.setItem('s3NavCredentials', JSON.stringify(creds));
+            this.encryptAndStoreCredentials(creds)
+                .then(payload => {
+                    localStorage.setItem('s3NavCredentials', JSON.stringify(payload));
+                })
+                .catch(error => {
+                    console.error('Error encrypting credentials:', error);
+                    this.showError('Failed to secure credentials locally.');
+                });
             
             const clearBtn = document.getElementById('clearSaved');
             clearBtn.style.display = 'block';
