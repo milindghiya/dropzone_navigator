@@ -6,6 +6,7 @@ class S3Navigator {
         this.credentials = {};
         this.isConnected = false;
         this.setupEventListeners();
+        this.setupNewFolderDialog();
         this.updateStatus('Ready to connect');
     }
 
@@ -18,6 +19,9 @@ class S3Navigator {
         
         const uploadBtn = document.getElementById('uploadBtn');
         uploadBtn.addEventListener('click', () => this.selectFiles());
+
+        const newFolderBtn = document.getElementById('newFolderBtn');
+        newFolderBtn.addEventListener('click', () => this.promptNewFolder());
         
         const fileInput = document.getElementById('fileInput');
         fileInput.addEventListener('change', (e) => this.handleFileSelection(e));
@@ -35,6 +39,94 @@ class S3Navigator {
         });
     }
 
+    setupNewFolderDialog() {
+        const overlay = document.getElementById('newFolderOverlay');
+        const input = document.getElementById('newFolderNameInput');
+        const error = document.getElementById('newFolderError');
+        const cancelBtn = document.getElementById('newFolderCancel');
+        const createBtn = document.getElementById('newFolderCreate');
+
+        if (!overlay || !input || !error || !cancelBtn || !createBtn) {
+            console.warn('New folder dialog elements are missing in the DOM.');
+            this.newFolderDialog = null;
+            return;
+        }
+
+        overlay.setAttribute('tabindex', '-1');
+        this.newFolderDialog = { overlay, input, error, cancelBtn, createBtn };
+    }
+
+    showNewFolderDialog() {
+        if (!this.newFolderDialog) {
+            return Promise.resolve(null);
+        }
+
+        const { overlay, input, error, cancelBtn, createBtn } = this.newFolderDialog;
+
+        return new Promise((resolve) => {
+            const resetState = () => {
+                input.value = '';
+                error.textContent = '';
+                error.style.display = 'none';
+            };
+
+            const cleanup = () => {
+                cancelBtn.removeEventListener('click', onCancel);
+                createBtn.removeEventListener('click', onConfirm);
+                input.removeEventListener('keydown', onKeyDown);
+                overlay.style.display = 'none';
+                resetState();
+            };
+
+            const onCancel = (event) => {
+                event.preventDefault();
+                cleanup();
+                resolve(null);
+            };
+
+            const onConfirm = (event) => {
+                event.preventDefault();
+                const value = input.value || '';
+                const trimmed = value.trim();
+
+                if (!trimmed) {
+                    error.textContent = 'Folder name cannot be empty.';
+                    error.style.display = 'block';
+                    return;
+                }
+
+                if (/[\\]/.test(trimmed) || trimmed.includes('..') || trimmed.includes('/')) {
+                    error.textContent = 'Folder name cannot include path separators, backslashes, or "..".';
+                    error.style.display = 'block';
+                    return;
+                }
+
+                cleanup();
+                resolve(trimmed);
+            };
+
+            const onKeyDown = (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    onConfirm(event);
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    onCancel(event);
+                }
+            };
+
+            cancelBtn.addEventListener('click', onCancel);
+            createBtn.addEventListener('click', onConfirm);
+            input.addEventListener('keydown', onKeyDown);
+ 
+            resetState();
+            overlay.style.display = 'flex';
+            window.requestAnimationFrame(() => {
+                input.focus();
+            });
+        });
+    }
+ 
     saveCredentials() {
         // Intentionally left blank: credentials are never persisted to disk for security
     }
@@ -76,6 +168,12 @@ class S3Navigator {
         const uploadBtn = document.getElementById('uploadBtn');
         uploadBtn.style.display = 'none';
         
+        const newFolderBtn = document.getElementById('newFolderBtn');
+        if (newFolderBtn) {
+            newFolderBtn.style.display = 'none';
+            newFolderBtn.disabled = false;
+        }
+
         // Hide breadcrumb
         const breadcrumb = document.getElementById('breadcrumb');
         breadcrumb.style.display = 'none';
@@ -272,6 +370,53 @@ class S3Navigator {
     showUploadButton() {
         const uploadBtn = document.getElementById('uploadBtn');
         uploadBtn.style.display = 'flex';
+
+        const newFolderBtn = document.getElementById('newFolderBtn');
+        newFolderBtn.style.display = 'flex';
+    }
+
+    async promptNewFolder() {
+        if (!this.isConnected) {
+            window.alert('Please connect to S3 before creating a folder.');
+            return;
+        }
+ 
+        const folderName = await this.showNewFolderDialog();
+        if (!folderName) {
+            return;
+        }
+
+        const trimmed = folderName.trim();
+        if (!trimmed) {
+            window.alert('Folder name cannot be empty.');
+            return;
+        }
+
+        const newFolderBtn = document.getElementById('newFolderBtn');
+        if (newFolderBtn) {
+            newFolderBtn.disabled = true;
+        }
+ 
+        try {
+            this.updateStatus(`Creating folder "${trimmed}"...`);
+            await window.awsApi.createFolder({
+                ...this.credentials,
+                prefix: this.currentPath,
+                folderName: trimmed
+            });
+ 
+            this.updateStatus(`Folder "${trimmed}" created successfully.`);
+            await this.loadFolder(this.currentPath);
+        } catch (error) {
+            console.error('Failed to create folder:', error);
+            const message = (error && error.message) ? error.message.replace('Create Folder Error: ', '') : 'Unknown error';
+            this.updateStatus('Folder creation failed');
+            window.alert(`Failed to create folder: ${message}`);
+        } finally {
+            if (newFolderBtn) {
+                newFolderBtn.disabled = false;
+            }
+        }
     }
 
     selectFiles() {
@@ -380,11 +525,10 @@ function parseAccessPointArn(arn) {
     // 1: everything up to "accesspoint/" is discarded
     // 2: ([^-]+)      — "capture as many non-'-' chars as possible"  → the access-point ID
     // 3: (?:-(.+))?   — optionally "-" plus "capture the rest"        → the folder name
-    [accPref,accName] = arn.split("/", 2)
-    m = accName.split("-", 2)
-    console.log(m[0])
+    const [accPref, accName] = arn.split('/', 2);
+    const m = accName.split('-', 2);
     return {
-        amgId:m[0],
+        amgId: m[0],
         suffix: m[1]
     };
 }

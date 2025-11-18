@@ -45,7 +45,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { S3Client, ListObjectsV2Command, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 
 function createWindow() {
@@ -246,6 +246,54 @@ ipcMain.handle('upload-files', async (_, { bucketArn, accessKey, secretKey, pref
     } catch (err) {
         console.error('Upload Error:', err);
         throw new Error(`Upload Error: ${err.message}`);
+    }
+});
+
+ipcMain.handle('create-folder', async (_, { bucketArn, accessKey, secretKey, prefix, folderName }) => {
+    try {
+        if (!bucketArn || !accessKey || !secretKey || !prefix || !folderName) {
+            throw new Error('Missing required parameters for folder creation');
+        }
+
+        const trimmedName = folderName.trim();
+        if (!trimmedName) {
+            throw new Error('Folder name cannot be empty');
+        }
+        if (/[\\]/.test(trimmedName) || trimmedName.includes('..')) {
+            throw new Error('Folder name contains invalid characters');
+        }
+        if (trimmedName.includes('/')) {
+            throw new Error('Folder name cannot include path separators');
+        }
+
+        const region = 'us-east-1';
+        const s3 = new S3Client({
+            region,
+            credentials: {
+                accessKeyId: accessKey,
+                secretAccessKey: secretKey,
+            },
+        });
+
+        const normalizedPrefix = prefix.endsWith('/') ? prefix : `${prefix}/`;
+        const folderKey = `${normalizedPrefix}${trimmedName}/`;
+
+        const command = new PutObjectCommand({
+            Bucket: bucketArn,
+            Key: folderKey,
+            Body: '',
+            ContentType: 'application/x-directory'
+        });
+
+        await s3.send(command);
+
+        return {
+            success: true,
+            key: folderKey
+        };
+    } catch (err) {
+        console.error('Create Folder Error:', err);
+        throw new Error(`Create Folder Error: ${err.message}`);
     }
 });
 
