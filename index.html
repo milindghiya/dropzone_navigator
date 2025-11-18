@@ -101,16 +101,109 @@
             align-items: center;
             gap: 4px;
         }
-        
+
+        .new-folder-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            display: none;
+            align-items: center;
+            gap: 4px;
+        }
+ 
         .upload-btn:hover {
             background: #d97706;
         }
-        
+ 
         .upload-btn:disabled {
             background: #9ca3af;
             cursor: not-allowed;
         }
-        
+
+        .new-folder-btn:hover {
+            background: #2563eb;
+        }
+
+        .new-folder-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+
+        .dialog-modal {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .dialog-modal h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #1f2937;
+        }
+
+        .dialog-modal input[type="text"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .dialog-error {
+            color: #dc2626;
+            font-size: 12px;
+            display: none;
+        }
+
+        .dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .dialog-actions button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .dialog-actions .cancel-btn {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .dialog-actions .confirm-btn {
+            background: #2563eb;
+            color: white;
+        }
+ 
         .navigation {
             padding: 20px;
         }
@@ -279,6 +372,9 @@
             <div class="button-group">
                 <button id="connectBtn" class="connect-btn">Connect to S3</button>
                 <button id="clearSaved" class="clear-saved" style="display: none;">Clear Saved</button>
+                <button id="newFolderBtn" class="new-folder-btn">
+                    📂 New Folder
+                </button>
                 <button id="uploadBtn" class="upload-btn">
                     📁 Upload Files
                 </button>
@@ -316,6 +412,19 @@
         </div>
     </div>
 
+    <!-- New folder dialog -->
+    <div id="newFolderOverlay" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="newFolderTitle">
+        <div class="dialog-modal">
+            <h3 id="newFolderTitle">Create New Folder</h3>
+            <input id="newFolderNameInput" type="text" placeholder="Folder name" autocomplete="off">
+            <div id="newFolderError" class="dialog-error"></div>
+            <div class="dialog-actions">
+                <button id="newFolderCancel" class="cancel-btn">Cancel</button>
+                <button id="newFolderCreate" class="confirm-btn">Create</button>
+            </div>
+        </div>
+    </div>
+ 
     <script src="renderer.js"></script>
 </body>
 </html>
