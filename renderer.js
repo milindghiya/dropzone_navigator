@@ -439,30 +439,28 @@ class S3Navigator {
             type: file.type
         }));
 
+        this.updateStatus('Uploading files using AWS CLI...');
+
         this.showUploadModal();
         
         try {
-            const result = await window.awsApi.uploadFiles({
+            const result = await window.awsApi.uploadFilesCli({
                 ...this.credentials,
                 prefix: this.currentPath,
                 files: fileData
             });
-
-            this.hideUploadModal();
-            
-            if (result.success) {
+ 
+            if (result.success && result.errorCount === 0) {
+                this.hideUploadModal();
                 this.updateStatus(`Upload complete: ${result.successCount}/${result.totalFiles} files uploaded successfully`);
-                
-                if (result.errorCount > 0) {
-                    this.showError(`${result.errorCount} files failed to upload. Check console for details.`);
-                }
-                
-                // Refresh current folder to show new files
                 await this.loadFolder(this.currentPath);
             } else {
-                this.showError('Upload failed');
+                const errors = result.errorCount || result.results.filter(r => !r.success).length;
+                this.updateStatus(`Upload completed with ${errors} error${errors === 1 ? '' : 's'}.`);
+                window.alert(`Upload failed for ${errors} file${errors === 1 ? '' : 's'}. Check connection and try again.`);
+                this.hideUploadModal();
             }
-            
+             
         } catch (error) {
             this.hideUploadModal();
             this.showError(`Upload failed: ${error.message || error}`);
@@ -482,6 +480,7 @@ class S3Navigator {
         
         const progressText = document.getElementById('modalProgressText');
         progressText.textContent = 'Preparing upload...';
+        progressText.style.color = '#1f2937';
     }
 
     hideUploadModal() {
@@ -502,6 +501,22 @@ class S3Navigator {
             } else {
                 progressText.textContent = `Uploading: ${data.fileName} (${data.currentFile}/${data.totalFiles}) - ${data.fileProgress}%`;
             }
+        }
+
+        if (data.type === 'cli-log') {
+            const progressText = document.getElementById('modalProgressText');
+            const fileLine = `Uploading: ${data.fileName} (${data.currentFile}/${data.totalFiles})`;
+            const cliLine = data.message ? `\n${data.message}` : '';
+            progressText.textContent = `${fileLine}${cliLine}`;
+            progressText.style.color = '#1f2937';
+            return;
+        }
+
+        if (data.type === 'error') {
+            const progressText = document.getElementById('modalProgressText');
+            progressText.textContent = `Failed: ${data.fileName} — ${data.message}`;
+            progressText.style.color = '#dc2626';
+            this.updateStatus(`Upload failed for ${data.fileName}`);
         }
     }
 

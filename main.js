@@ -45,8 +45,92 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { S3Client, ListObjectsV2Command, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
+
+function findCliRecursive(startDir, targetNames, depth = 0) {
+  if (!fs.existsSync(startDir) || depth > 6) {
+    return null;
+  }
+
+  const entries = fs.readdirSync(startDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isFile() && targetNames.includes(entry.name)) {
+      return path.join(startDir, entry.name);
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const result = findCliRecursive(path.join(startDir, entry.name), targetNames, depth + 1);
+      if (result) {
+        return result;
+      }
+    }
+  }
+  return null;
+}
+
+function resolveBundledCli(platform) {
+  const targets = platform === 'win32' ? ['aws.exe'] : ['aws', 'aws2'];
+  const bases = [];
+  if (process.resourcesPath) {
+    bases.push(path.join(process.resourcesPath, 'aws-cli', platform));
+  }
+  bases.push(path.join(__dirname, 'aws-cli', platform));
+
+  for (const base of bases) {
+    const directCandidates = [
+      path.join(base, 'bin', targets[0]),
+      path.join(base, targets[0]),
+      path.join(base, 'v2', 'current', 'bin', targets[0])
+    ];
+
+    for (const candidate of directCandidates) {
+      if (fs.existsSync(candidate)) {
+        try {
+          fs.chmodSync(candidate, 0o755);
+        } catch (err) {
+          // ignore
+        }
+        return candidate;
+      }
+    }
+
+    const recursive = findCliRecursive(base, targets);
+    if (recursive) {
+      try {
+        fs.chmodSync(recursive, 0o755);
+      } catch (err) {
+        // ignore
+      }
+      return recursive;
+    }
+  }
+  return null;
+}
+
+function getAwsCliExecutable() {
+  const envPath = process.env.AWS_CLI_PATH;
+  if (envPath && fs.existsSync(envPath)) {
+    return envPath;
+  }
+
+  const bundled = resolveBundledCli(process.platform);
+  if (bundled) {
+    return bundled;
+  }
+
+  const fallback = process.platform === 'win32' ? 'aws.exe' : 'aws';
+  console.warn('AWS CLI executable not found in bundle. Falling back to system path:', fallback);
+  return fallback;
+}
+
+function formatS3Uri(bucketArn, key) {
+  const normalizedKey = key.replace(/^\/+/, '');
+  return `s3://${bucketArn}/${normalizedKey}`;
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -227,6 +311,15 @@ ipcMain.handle('upload-files', async (_, { bucketArn, accessKey, secretKey, pref
 
             } catch (fileError) {
                 console.error(`Error uploading ${file.name}:`, fileError);
+                if (mainWindow) {
+                    mainWindow.webContents.send('upload-progress', {
+                        type: 'error',
+                        currentFile: i + 1,
+                        totalFiles: totalFiles,
+                        fileName: file.name,
+                        message: fileError.message || 'Upload failed'
+                    });
+                }
                 uploadResults.push({
                     fileName: file.name,
                     success: false,
@@ -248,6 +341,152 @@ ipcMain.handle('upload-files', async (_, { bucketArn, accessKey, secretKey, pref
         throw new Error(`Upload Error: ${err.message}`);
     }
 });
+
+ipcMain.handle('upload-files-cli', async (_, { bucketArn, accessKey, secretKey, prefix, files }) => {
+    try {
+        if (!bucketArn || !accessKey || !secretKey || !files || files.length === 0) {
+            throw new Error('Missing required parameters for CLI upload');
+        }
+
+        const cliPath = getAwsCliExecutable();
+        const region = 'us-east-1';
+        const credentials = {
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey
+        };
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        const uploadResults = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const s3Key = prefix + file.name;
+
+            try {
+                await uploadFileWithAwsCli({
+                    cliPath,
+                    file,
+                    bucketArn,
+                    key: s3Key,
+                    region,
+                    credentials,
+                    mainWindow,
+                    currentIndex: i,
+                    totalFiles: files.length
+                });
+                uploadResults.push({
+                    fileName: file.name,
+                    success: true,
+                    key: s3Key
+                });
+            } catch (fileError) {
+                console.error(`CLI upload error for ${file.name}:`, fileError);
+                uploadResults.push({
+                    fileName: file.name,
+                    success: false,
+                    error: fileError.message
+                });
+            }
+        }
+
+        return {
+            success: uploadResults.every(r => r.success),
+            results: uploadResults,
+            totalFiles: files.length,
+            successCount: uploadResults.filter(r => r.success).length,
+            errorCount: uploadResults.filter(r => !r.success).length
+        };
+
+    } catch (err) {
+        console.error('CLI Upload Error:', err);
+        throw new Error(`CLI Upload Error: ${err.message}`);
+    }
+});
+
+async function uploadFileWithAwsCli({ cliPath, file, bucketArn, key, region, credentials, mainWindow, currentIndex, totalFiles }) {
+  return new Promise((resolve, reject) => {
+    const s3Uri = formatS3Uri(bucketArn, key);
+    const args = ['s3', 'cp', file.path, s3Uri, '--region', region];
+    const env = {
+      ...process.env,
+      AWS_ACCESS_KEY_ID: credentials.accessKeyId,
+      AWS_SECRET_ACCESS_KEY: credentials.secretAccessKey,
+      AWS_SESSION_TOKEN: credentials.sessionToken || '',
+      AWS_REGION: region,
+      AWS_CLI_PROGRESS: 'standard'
+    };
+
+    const child = spawn(cliPath, args, { env });
+
+    const sendLog = (message) => {
+      if (!message) return;
+      if (mainWindow) {
+        mainWindow.webContents.send('upload-progress', {
+          type: 'cli-log',
+          currentFile: currentIndex + 1,
+          totalFiles,
+          fileName: file.name,
+          message
+        });
+      }
+    };
+
+    sendLog(`Uploading: ${file.name}`);
+
+    const sendProgress = (percent) => {
+      if (percent == null || !mainWindow) return;
+      mainWindow.webContents.send('upload-progress', {
+        type: 'progress',
+        currentFile: currentIndex + 1,
+        totalFiles,
+        fileName: file.name,
+        fileProgress: percent
+      });
+    };
+
+    const handleStreamData = (data) => {
+      const text = data.toString();
+      text.split(/\r|\n/).forEach(segment => {
+        const line = segment.trim();
+        if (line) {
+          sendLog(line);
+          const percentMatch = line.match(/\((\d+)%\)/);
+          if (percentMatch) {
+            sendProgress(parseInt(percentMatch[1], 10));
+          }
+        }
+      });
+    };
+
+    child.stderr.on('data', handleStreamData);
+
+    child.stdout.on('data', handleStreamData);
+
+    child.on('error', (err) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('upload-progress', {
+          type: 'error',
+          currentFile: currentIndex + 1,
+          totalFiles,
+          fileName: file.name,
+          message: err.message || 'Failed to start aws cli upload'
+        });
+      }
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        sendLog(`Completed upload: ${file.name}`);
+        sendProgress(100);
+        resolve({ success: true });
+      } else {
+        const message = `aws cli exited with code ${code}`;
+        sendLog(message);
+        reject(new Error(message));
+      }
+    });
+  });
+}
 
 ipcMain.handle('create-folder', async (_, { bucketArn, accessKey, secretKey, prefix, folderName }) => {
     try {
