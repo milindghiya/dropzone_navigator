@@ -84,7 +84,10 @@ function resolveBundledCli(platform) {
     const directCandidates = [
       path.join(base, 'bin', targets[0]),
       path.join(base, targets[0]),
-      path.join(base, 'v2', 'current', 'bin', targets[0])
+      path.join(base, 'v2', 'current', 'bin', targets[0]),
+      path.join(base, 'bin', targets[1]),
+      path.join(base, targets[1]),
+      path.join(base, 'v2', 'current', 'bin', targets[1])
     ];
 
     for (const candidate of directCandidates) {
