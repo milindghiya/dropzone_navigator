@@ -73,6 +73,9 @@ function findCliRecursive(startDir, targetNames, depth = 0) {
 }
 
 function resolveBundledCli(platform) {
+  if (platform == 'darwin') {
+    platform = 'macos'
+  }
   const targets = platform === 'win32' ? ['aws.exe'] : ['aws', 'aws2'];
   const bases = [];
   if (process.resourcesPath) {
