@@ -49,6 +49,36 @@ const { spawn, spawnSync } = require('child_process');
 const { S3Client, ListObjectsV2Command, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 
+function extendPathForAwsCli() {
+  const extras = [];
+  if (process.platform === 'darwin') {
+    extras.push('/opt/homebrew/bin', '/usr/local/bin', '/usr/bin');
+  } else if (process.platform === 'linux') {
+    extras.push('/usr/local/bin', '/usr/bin', '/snap/bin');
+  }
+
+  if (extras.length === 0) {
+    return;
+  }
+
+  const delimiter = path.delimiter;
+  const currentSegments = (process.env.PATH || '').split(delimiter).filter(Boolean);
+  let updated = false;
+
+  extras.forEach(dir => {
+    if (!currentSegments.includes(dir) && fs.existsSync(dir)) {
+      currentSegments.push(dir);
+      updated = true;
+    }
+  });
+
+  if (updated) {
+    process.env.PATH = currentSegments.join(delimiter);
+  }
+}
+
+extendPathForAwsCli();
+
 function findCliRecursive(startDir, targetNames, depth = 0) {
   if (!fs.existsSync(startDir) || depth > 6) {
     return null;
