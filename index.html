@@ -45,12 +45,77 @@
             border-radius: 4px;
             font-size: 14px;
         }
+
+        .credentials input:disabled {
+            background: #e5e7eb;
+            color: #6b7280;
+        }
         
         .button-group {
             display: flex;
             gap: 10px;
             align-items: center;
             margin-top: 10px;
+        }
+
+        .cli-notice {
+            margin-top: 15px;
+            padding: 12px 14px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            display: flex;
+            gap: 14px;
+            font-size: 13px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .cli-info {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .cli-notice .cli-icon {
+            font-size: 18px;
+            line-height: 1.2;
+        }
+
+        .cli-notice .cli-refresh-btn {
+            background: #1d4ed8;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .cli-notice .cli-refresh-btn:disabled {
+            background: #93c5fd;
+            cursor: not-allowed;
+        }
+
+        .cli-notice.info {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            color: #3730a3;
+        }
+
+        .cli-notice.success {
+            background: #ecfdf5;
+            border-color: #6ee7b7;
+            color: #065f46;
+        }
+
+        .cli-notice.warning {
+            background: #fef3c7;
+            border-color: #fcd34d;
+            color: #92400e;
         }
         
         .connect-btn {
@@ -378,6 +443,13 @@
                 <button id="uploadBtn" class="upload-btn">
                     📁 Upload Files
                 </button>
+            </div>
+            <div id="cliNotice" class="cli-notice info">
+                <div class="cli-info">
+                    <span id="cliNoticeIcon" class="cli-icon">ℹ️</span>
+                    <span id="cliNoticeText">AWS CLI is required for uploads. Checking your system...</span>
+                </div>
+                <button id="cliRefreshBtn" class="cli-refresh-btn" disabled>Refresh</button>
             </div>
         </div>
         

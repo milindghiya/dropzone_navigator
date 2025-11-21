@@ -42,10 +42,10 @@
 //   }
 // });
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const { S3Client, ListObjectsV2Command, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 
@@ -117,6 +117,16 @@ function resolveBundledCli(platform) {
   return null;
 }
 
+function commandExists(command) {
+  try {
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+    const result = spawnSync(whichCmd, [command], { stdio: 'ignore' });
+    return result.status === 0;
+  } catch (err) {
+    return false;
+  }
+}
+
 function getAwsCliExecutable() {
   const envPath = process.env.AWS_CLI_PATH;
   if (envPath && fs.existsSync(envPath)) {
@@ -129,8 +139,74 @@ function getAwsCliExecutable() {
   }
 
   const fallback = process.platform === 'win32' ? 'aws.exe' : 'aws';
-  console.warn('AWS CLI executable not found in bundle. Falling back to system path:', fallback);
-  return fallback;
+  if (commandExists(fallback)) {
+    console.warn('Using system AWS CLI binary found on PATH:', fallback);
+    return fallback;
+  }
+
+  console.warn('AWS CLI executable not found in bundle or system PATH.');
+  return null;
+}
+
+function getSuggestedInstallCommand() {
+  if (process.platform === 'darwin') {
+    return 'brew install awscli';
+  }
+  if (process.platform === 'linux') {
+    return 'sudo apt install awscli';
+  }
+  if (process.platform === 'win32') {
+    return 'winget install --id Amazon.AWSCLI -e';
+  }
+  return null;
+}
+
+async function ensureAwsCliAvailable() {
+  const cliPath = getAwsCliExecutable();
+  if (cliPath) {
+    return cliPath;
+  }
+
+  const installCommand = getSuggestedInstallCommand();
+  const buttons = [];
+  const messages = [];
+
+  if (installCommand) {
+    buttons.push('Copy install command');
+    messages.push(`Suggested command: ${installCommand}`);
+  }
+
+  buttons.push('Open AWS install guide');
+  buttons.push('Cancel');
+
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    buttons,
+    defaultId: 0,
+    cancelId: buttons.length - 1,
+    title: 'AWS CLI not found',
+    message: 'AWS CLI is required for CLI uploads.',
+    detail: [
+      'We could not locate an AWS CLI binary on this machine.',
+      'Install the AWS CLI and then retry the upload.',
+      ...messages
+    ].join('\n\n')
+  });
+
+  if (installCommand && response === 0) {
+    clipboard.writeText(installCommand);
+    const installGuideIndex = 1;
+    if (buttons[installGuideIndex] && buttons[installGuideIndex] === 'Open AWS install guide') {
+      // no-op, user specifically chose copy
+    }
+  }
+
+  const installGuideIndex = installCommand ? 1 : 0;
+  if (response === installGuideIndex) {
+    shell.openExternal('https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html');
+  }
+
+  throw new Error('AWS CLI not available on this system. Install it and try again.');
 }
 
 function formatS3Uri(bucketArn, key) {
@@ -161,6 +237,23 @@ function createWindow() {
 }
 
 app.whenReady().then(createWindow);
+
+ipcMain.handle('check-aws-cli', async () => {
+  try {
+    const cliPath = getAwsCliExecutable();
+    return {
+      available: Boolean(cliPath),
+      path: cliPath || null,
+      installCommand: getSuggestedInstallCommand()
+    };
+  } catch (err) {
+    return {
+      available: false,
+      error: err?.message || 'Unknown error',
+      installCommand: getSuggestedInstallCommand()
+    };
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -354,7 +447,7 @@ ipcMain.handle('upload-files-cli', async (_, { bucketArn, accessKey, secretKey, 
             throw new Error('Missing required parameters for CLI upload');
         }
 
-        const cliPath = getAwsCliExecutable();
+        const cliPath = await ensureAwsCliAvailable();
         const region = 'us-east-1';
         const credentials = {
             accessKeyId: accessKey,

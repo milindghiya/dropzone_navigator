@@ -58,6 +58,10 @@ Before building or installing Dropzone Navigator, ensure you have:
 - **Node.js** (version 16.0 or higher) - [Download here](https://nodejs.org/)
 - **npm** (comes with Node.js) or **yarn**
 - **Git** (for cloning the repository)
+- **AWS CLI v2** available on the system PATH (the app checks automatically and blocks credential entry until found). Install it with one of the following commands and restart/refresh the app:
+  - macOS: `brew install awscli`
+  - Windows: `winget install --id Amazon.AWSCLI -e`
+  - Linux (Debian/Ubuntu example): `sudo apt install awscli`
 - **AWS Credentials** with S3 access permissions:
   - AWS Access Key ID
   - AWS Secret Access Key  
@@ -189,12 +193,16 @@ chmod +x dist/Dropzone-Navigator-*.AppImage
 
 ### First-Time Setup
 1. **Launch the Application**
-2. **Enter AWS Credentials**:
+2. **Confirm AWS CLI Availability**:
+   - The header banner shows whether the AWS CLI was detected.
+   - If missing, install it using the suggested command in the banner, then click the **Refresh** button to re-check (or restart the app).
+   - Credential inputs stay disabled until AWS CLI is available because uploads rely on the CLI.
+3. **Enter AWS Credentials**:
    - Access Key ID
    - Secret Access Key
    - S3 Access Point ARN (e.g., `arn:aws:s3:us-east-1:123456789012:accesspoint/user123`)
-3. **Click "Connect to S3"**
-4. **Start browsing your files!**
+4. **Click "Connect to S3"**
+5. **Start browsing your files!**
 
 ### Navigation
 - **Browse Folders**: Click any folder icon (📁) to open it

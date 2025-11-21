@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('awsApi', {
   uploadFiles: (params) => ipcRenderer.invoke('upload-files', params),
   uploadFilesCli: (params) => ipcRenderer.invoke('upload-files-cli', params),
   createFolder: (params) => ipcRenderer.invoke('create-folder', params),
+  checkAwsCli: () => ipcRenderer.invoke('check-aws-cli'),
   onUploadProgress: (callback) => ipcRenderer.on('upload-progress', callback),
   removeUploadProgressListener: (callback) => ipcRenderer.removeListener('upload-progress', callback)
 });
