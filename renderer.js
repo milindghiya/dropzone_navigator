@@ -5,9 +5,15 @@ class S3Navigator {
         this.rootPrefix = ''; // The minimum prefix user has access to
         this.credentials = {};
         this.isConnected = false;
+        this.cliReady = false;
+        this.cliCheckInProgress = false;
+        this.credentialFieldIds = ['accessKey', 'secretKey', 'bucketArn', 'dropzoneFolder'];
         this.setupEventListeners();
         this.setupNewFolderDialog();
-        this.updateStatus('Ready to connect');
+        this.disableCredentialInputs(true, { label: 'Checking AWS CLI...' });
+        this.updateCliNotice('AWS CLI is required for uploads. Checking your system...', 'info');
+        this.updateStatus('Checking system requirements...');
+        this.checkCliAvailability();
     }
 
     setupEventListeners() {
@@ -25,6 +31,11 @@ class S3Navigator {
         
         const fileInput = document.getElementById('fileInput');
         fileInput.addEventListener('change', (e) => this.handleFileSelection(e));
+
+        const cliRefreshBtn = document.getElementById('cliRefreshBtn');
+        if (cliRefreshBtn) {
+            cliRefreshBtn.addEventListener('click', () => this.checkCliAvailability({ manual: true }));
+        }
         
         // Listen for upload progress from main process
         window.awsApi.onUploadProgress((event, data) => {
@@ -187,9 +198,16 @@ class S3Navigator {
 
         // Clear status message
         this.updateStatus('Disconnected. Ready to connect.');
+        this.disableCredentialInputs(!this.cliReady);
     }
 
     async connect() {
+        if (!this.cliReady) {
+            window.alert('AWS CLI is required before connecting. Install it to continue.');
+            this.updateStatus('AWS CLI not available. Install it to continue.');
+            return;
+        }
+
         const accessKey = document.getElementById('accessKey').value.trim();
         const secretKey = document.getElementById('secretKey').value.trim();
         const bucketArn = document.getElementById('bucketArn').value.trim();
@@ -533,6 +551,98 @@ class S3Navigator {
     updateStatus(message) {
         const status = document.getElementById('status');
         status.textContent = message;
+    }
+
+    disableCredentialInputs(disabled, options = {}) {
+        const { label } = options;
+        this.credentialFieldIds.forEach(id => {
+            const field = document.getElementById(id);
+            if (field) {
+                field.disabled = disabled;
+            }
+        });
+
+        const connectBtn = document.getElementById('connectBtn');
+        if (connectBtn && !this.isConnected) {
+            connectBtn.disabled = disabled;
+            if (disabled) {
+                connectBtn.textContent = label || 'Install AWS CLI to continue';
+                connectBtn.style.background = '#9ca3af';
+            } else {
+                connectBtn.textContent = 'Connect to S3';
+                connectBtn.style.background = '#16a34a';
+            }
+        }
+    }
+
+    updateCliNotice(message, variant = 'info') {
+        const notice = document.getElementById('cliNotice');
+        const textEl = document.getElementById('cliNoticeText');
+        const iconEl = document.getElementById('cliNoticeIcon');
+        if (!notice || !textEl || !iconEl) return;
+
+        const icon = variant === 'success' ? '✅' : variant === 'warning' ? '⚠️' : 'ℹ️';
+        notice.className = `cli-notice ${variant}`;
+        iconEl.textContent = icon;
+        textEl.textContent = message;
+    }
+
+    setCliRefreshState(isLoading) {
+        const btn = document.getElementById('cliRefreshBtn');
+        if (!btn) return;
+        btn.disabled = isLoading;
+        btn.textContent = isLoading ? 'Checking...' : 'Refresh';
+    }
+
+    async checkCliAvailability(options = {}) {
+        if (this.cliCheckInProgress) {
+            return;
+        }
+
+        const { manual = false } = options;
+        this.cliCheckInProgress = true;
+        this.setCliRefreshState(true);
+        if (manual) {
+            this.updateStatus('Re-checking AWS CLI availability...');
+        }
+
+        if (!window.awsApi || typeof window.awsApi.checkAwsCli !== 'function') {
+            this.cliReady = true;
+            this.disableCredentialInputs(false);
+            this.updateCliNotice('Unable to verify AWS CLI automatically. Proceed with caution.', 'warning');
+            this.updateStatus('Ready to connect');
+            this.cliCheckInProgress = false;
+            this.setCliRefreshState(false);
+            return;
+        }
+
+        try {
+            const result = await window.awsApi.checkAwsCli();
+            if (result?.available) {
+                this.cliReady = true;
+                this.disableCredentialInputs(false);
+                const location = result.path ? ` at ${result.path}` : '';
+                this.updateCliNotice(`AWS CLI detected${location}. Enter your credentials to continue.`, 'success');
+                this.updateStatus('AWS CLI detected. Ready to connect.');
+            } else {
+                this.cliReady = false;
+                this.disableCredentialInputs(true);
+                const installSuggestion = result?.installCommand
+                    ? `Install it by running "${result.installCommand}" in your terminal, then restart this app.`
+                    : 'Install it using the AWS CLI instructions, then restart this app.';
+                this.updateCliNotice(`AWS CLI is required before you can connect. ${installSuggestion}`, 'warning');
+                this.updateStatus('AWS CLI missing. Install it to continue.');
+            }
+        } catch (error) {
+            console.error('Failed to check AWS CLI availability:', error);
+            this.cliReady = false;
+            this.disableCredentialInputs(true);
+            this.updateCliNotice(`Unable to verify AWS CLI: ${error.message || error}. Install it manually and restart.`, 'warning');
+            this.updateStatus('AWS CLI check failed. Install it to continue.');
+        } finally {
+            this.cliCheckInProgress = false;
+            this.setCliRefreshState(false);
+        }
     }
 }
 
