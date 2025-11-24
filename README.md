@@ -146,7 +146,7 @@ npm run build:win
 ### macOS
 
 #### Option 1: Download Pre-built App
-1. Download `Dropzone-Navigator-x.x.x.dmg` from the [Releases](https://github.com/milindghiya/dropzone_navigator/releases) page
+1. Download `Dropzone.Navigator-x.x.x.dmg` (or `Dropzone.Navigator-x.x.x-arm64.dmg` depending on `uname -m` output) from the [Releases](https://github.com/milindghiya/dropzone_navigator/releases) page 
 2. Open the DMG file and drag "Dropzone Navigator" to Applications
 3. Launch from Applications folder (you may need to allow the app in Security & Privacy settings), incase of a warning message that app is damaged, please run `xattr -dr com.apple.quarantine '/Applications/Dropzone Navigator.app'` command to bypass gatekeeping done by macos.
 
@@ -302,5 +302,6 @@ The application will automatically include these dependencies when building:
 ---
 
 Made with ❤️ using Electron and AWS SDK 
+
 
 
